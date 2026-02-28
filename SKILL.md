@@ -36,7 +36,24 @@ Before writing a line of code, understand the full picture. Ask these questions 
 - What content do you have? Ask them to paste an outline, upload a document, describe the topic, or share a URL.
 - If they give you raw content, tell them what you're going to do with it before doing it.
 
-**Aesthetic**
+**Style & Brand**
+
+Always ask this before generating any style preview. Frame it as a simple choice:
+
+> *"Do you have a brand kit or style guidelines you'd like to use — or should I show you a few preset styles to pick from?"*
+
+**If they have a brand kit**, accept any of these (one is enough — don't ask for all of them):
+
+| Input | How to share it |
+|-------|----------------|
+| **Hex colors + font names** | Paste directly: `"primary: #2B4EFF, accent: #FF5733, body font: Helvetica Neue"` |
+| **Logo file** | File path or URL — placed on every slide |
+| **PPT template** | `.pptx` file path — used as the visual base for both HTML and editable export |
+| **Canva Brand Kit** | In Canva: Brand Kit → copy hex colors + font names, or Share → Download → PowerPoint to get a template file |
+
+Apply the brand colors to the HTML by creating a custom `:root {}` block instead of using a preset. Map their colors to `--bg`, `--accent`, `--text-primary`, `--text-secondary`, `--surface`. Load their fonts from Google Fonts if available.
+
+**If they don't have a brand kit**, proceed with the preset style picker:
 - Don't ask the user to describe their aesthetic in words — most people can't. Show them options instead.
 - Pick 3 presets from `STYLE_PRESETS.md` that fit the topic and audience.
 - Generate a `style-preview.html` file using the Style Preview Template from `STYLE_PRESETS.md`, showing all 3 presets as mini swatches side by side.
@@ -150,6 +167,66 @@ Build a **single self-contained HTML file** that works in any modern browser wit
 <body>  — slide/section markup
 <script> — GSAP animations, navigation logic
 ```
+
+### Viewport scaling — REQUIRED for slide modes (Mode A and C)
+
+**This is the most common production bug.** Without this, text looks fine in a normal browser window but becomes tiny when fullscreened or shown on a projector.
+
+The fix: author all slides at a fixed canvas size (1280×720), then scale the entire canvas as a unit to fill the viewport. Font sizes and padding stay consistent because they all move together.
+
+**Required CSS structure:**
+```css
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000; /* letterbox — change to match --bg if you want no bars */
+}
+
+.slides-wrapper {
+  position: fixed;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  /* JS sets: transform, left, top */
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+```
+
+**Required JS (add near the top of your script block):**
+```javascript
+// === VIEWPORT SCALING ===
+// Keeps slides full-size at any resolution, including fullscreen (F11).
+// Author all content at 1280×720 — the browser scales it as a unit.
+const SLIDE_W = 1280;
+const SLIDE_H = 720;
+const slidesWrapper = document.querySelector('.slides-wrapper');
+
+function scaleToViewport() {
+  const scaleX = window.innerWidth / SLIDE_W;
+  const scaleY = window.innerHeight / SLIDE_H;
+  const scale = Math.min(scaleX, scaleY);
+  const offsetX = (window.innerWidth - SLIDE_W * scale) / 2;
+  const offsetY = (window.innerHeight - SLIDE_H * scale) / 2;
+  slidesWrapper.style.transform = `scale(${scale})`;
+  slidesWrapper.style.transformOrigin = '0 0';
+  slidesWrapper.style.left = offsetX + 'px';
+  slidesWrapper.style.top = offsetY + 'px';
+}
+
+window.addEventListener('resize', scaleToViewport);
+document.addEventListener('fullscreenchange', scaleToViewport);
+scaleToViewport(); // run on load
+```
+
+> **What this does:** At 1280×720 viewport, scale = 1.0 (no change). At 2560×1440, scale = 2.0 (everything doubles). When F11 fullscreen fires, `resize` triggers the recalculation automatically. The result looks identical at any resolution.
+
+---
 
 ### Design principles (borrow from frontend-design skill)
 
@@ -279,6 +356,81 @@ Then ask: "What would you like to adjust?" Be ready to iterate on:
 - Animations (more/less/different)
 - Interactivity (add a quiz, add chart, add branching)
 
+### Publishing to GitHub Pages (free hosting)
+
+**Always output the file as `index.html`.** This is the required filename for GitHub Pages to serve it automatically.
+
+After the user approves the presentation, offer these hosting instructions:
+
+> **To publish free on GitHub Pages:**
+> 1. Create a new GitHub repo (e.g., `my-presentation`) — or use an existing one
+> 2. Add `index.html` to the root of the repo (or a `docs/` subfolder if other files are present)
+> 3. Go to **Settings → Pages → Source** → select branch `main` and folder `/` (root) → click **Save**
+> 4. In ~60 seconds your presentation will be live at: `https://yourusername.github.io/my-presentation/`
+>
+> **If the repo already has content**, put `index.html` in a `docs/` folder and set Pages source to `/docs` instead.
+
+The presentation is a single self-contained HTML file, so it needs no build step, no server, and no dependencies — it works perfectly on GitHub Pages out of the box.
+
+---
+
+## Phase 6: PPT Export
+
+Offer this **after Phase 5** once the HTML is approved. Say: *"Would you like an editable .pptx version? All text will be directly editable in PowerPoint."*
+
+Also trigger this phase if the user asks at any point how to edit text, or requests a PowerPoint file.
+
+### How to generate
+
+1. Create `build-deck.js` in the same directory as `index.html`
+2. Recreate each slide's content using pptxgenjs — translate HTML layout → pptxgenjs API calls
+3. Map CSS variables from the chosen preset → pptxgenjs hex constants (strip the `#`)
+4. Use PowerPoint-safe fonts (see mapping table below)
+5. Run: `NODE_PATH=$(npm root -g) node build-deck.js`
+6. Output: `[name].pptx` in the same directory
+
+### Font mapping (HTML preset → PowerPoint)
+
+| HTML preset font | PowerPoint equivalent |
+|---|---|
+| Plus Jakarta Sans, Syne, Barlow, Nunito, DM Sans | Calibri |
+| Cormorant Garamond, Playfair Display, Libre Baskerville | Georgia |
+| IBM Plex Mono, JetBrains Mono, Space Mono | Courier New |
+| Source Serif 4 | Georgia |
+
+### pptxgenjs rules (follow strictly — violations corrupt files or cause silent bugs)
+
+- **NEVER prefix hex colors with `#`** — `"6C47FF"` not `"#6C47FF"` — causes file corruption
+- **NEVER encode opacity in hex** — don't use 8-char hex like `"6C47FF80"`. Use `opacity: 0.5` instead
+- **Always use a shadow factory function** — pptxgenjs mutates objects in-place; never share a shadow config object across calls:
+  ```javascript
+  const mkShadow = () => ({ type: "outer", blur: 10, offset: 2, angle: 135, color: "000000", opacity: 0.1 });
+  // Call mkShadow() fresh for every addShape that needs a shadow
+  ```
+- **Use `breakLine: true`** in rich text arrays for multi-line content
+- **Use `margin: 0`** on text boxes that must align precisely with shapes or lines
+
+### Applying brand to the PPT
+
+If a brand kit was collected in Phase 1, apply it here:
+
+**Colors + Fonts** — replace the color constants at the top of `build-deck.js` with the brand colors; set `fontFace` to the user's fonts (use the mapping table above if they're not PowerPoint-safe); add logo via `slide.addImage({ path: "logo.png", x: 0.3, y: 0.2, w: 1.2, h: 0.4 })` on every slide.
+
+**PPT Template** — use the pptx skill's editing workflow (unpack → inject content → repack) instead of generating from scratch. This gives the highest-fidelity brand output — the result inherits the template's master styles, fonts, and layouts. Refer to the `pptx` skill's `editing.md`.
+
+**No brand kit collected** — use the same color palette from the HTML preset, translated to hex constants.
+
+### PPT export checklist
+
+- [ ] Content matches HTML slides (same text, same structure, same slide count)
+- [ ] Colors match the HTML preset or brand kit
+- [ ] All slides have correct header (eyebrow label + slide number)
+- [ ] Shadow factory function used — no shared shadow objects
+- [ ] No `#` prefix on any hex color string
+- [ ] All fonts are PowerPoint-compatible
+- [ ] `NODE_PATH=$(npm root -g) node build-deck.js` runs without errors
+- [ ] Open the `.pptx` and visually scan before delivering
+
 ---
 
 ## Quick reference: Avoid these mistakes
@@ -294,3 +446,8 @@ Then ask: "What would you like to adjust?" Be ready to iterate on:
 - **Don't forget the "so what?" on data slides.** A chart without an insight caption is incomplete.
 - **Don't skip navigation.** Always include keyboard, click, touch, swipe, and wheel support. Navigation dots too.
 - **Don't ship uncommented code.** Add slide section comments and brief JS explanations — the user will edit this file.
+- **Don't forget viewport scaling.** Always include `scaleToViewport()` for slide modes — without it, text looks tiny on fullscreen/projectors.
+- **Always output as `index.html`.** GitHub Pages requires this filename to serve the file automatically at the root URL.
+- **After HTML approval, proactively offer the PPT export.** Don't wait for the user to ask — say "Would you like an editable .pptx version too?"
+- **For PPT export, never use `#` in hex colors and never share shadow config objects.** Both silently corrupt the output. Always use a shadow factory: `const mkShadow = () => ({ ... })`.
+- **For brand kits, don't overcomplicate it.** You don't need API access or OAuth. Accept hex colors + font names, a logo file, or a .pptx template — any one of these is enough to apply a brand. Guide the user to export from Canva as .pptx if they have a Canva template.
