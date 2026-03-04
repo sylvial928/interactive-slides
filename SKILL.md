@@ -105,6 +105,12 @@ After presenting the ghost list, append a density recommendation based on audien
 
 Wait for the user's reply before proceeding. If they adjust the density, note it and apply it in the build.
 
+**Density is a global default, not a per-slide rule.** Apply the recommended level as the baseline, but let individual slides deviate when the content demands it:
+- Title and section-break slides are always lean regardless of global density — one strong line, nothing else.
+- Evidence and data slides may carry more text even in a lean deck — a chart without context misleads.
+- Conclusion and call-to-action slides return to lean — end on a clear, memorable line, not a wall of text.
+- Architecture, process, and comparison slides can go medium even in lean decks — the structure IS the content.
+
 ---
 
 ### Visual Treatment Decision (runs only if lean or lean-to-medium density is confirmed)
@@ -165,6 +171,173 @@ User scrolls down to advance through the narrative. Best for async sharing, repo
 - Content animates in as it enters the viewport
 - Feels like an interactive article or annual report
 - No navigation UI — scrolling IS the interaction
+
+> **Note:** Do NOT use `scaleToViewport()` for scroll stories — they are full-page documents, not fixed-canvas slides. Viewport scaling is only for Mode A and Mode C.
+
+**HTML structure:**
+```html
+<div class="scroll-story">
+  <section class="story-section" id="section-1">
+    <div class="section-content">
+      <!-- slide-equivalent content goes here -->
+      <!-- add class="reveal" to elements you want to animate in -->
+      <div class="stagger-group">
+        <h2 class="reveal">Headline</h2>
+        <p class="reveal">Supporting text</p>
+      </div>
+    </div>
+  </section>
+  <!-- repeat per section -->
+</div>
+```
+
+**Required CSS:**
+```css
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
+.story-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px;
+  position: relative;
+}
+
+.section-content {
+  max-width: 960px;
+  width: 100%;
+}
+
+/* Elements start invisible — ScrollTrigger reveals them on scroll */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+}
+```
+
+**ScrollTrigger setup — register the plugin, then wire up reveals:**
+```javascript
+gsap.registerPlugin(ScrollTrigger);
+
+// Reveal individual .reveal elements as they enter viewport
+document.querySelectorAll('.story-section .reveal').forEach(el => {
+  // Skip elements inside a .stagger-group (handled below)
+  if (el.closest('.stagger-group')) return;
+  gsap.to(el, {
+    opacity: 1,
+    y: 0,
+    duration: 0.7,
+    ease: 'power2.out',
+    scrollTrigger: {
+      trigger: el,
+      start: 'top 82%',       // fires when element top hits 82% down viewport
+      toggleActions: 'play none none none'
+    }
+  });
+});
+
+// Stagger children inside .stagger-group containers
+document.querySelectorAll('.stagger-group').forEach(group => {
+  gsap.to(group.querySelectorAll('.reveal'), {
+    opacity: 1,
+    y: 0,
+    duration: 0.6,
+    stagger: 0.1,
+    ease: 'power2.out',
+    scrollTrigger: {
+      trigger: group,
+      start: 'top 78%',
+      toggleActions: 'play none none none'
+    }
+  });
+});
+```
+
+**Reading progress bar (always include for scroll stories):**
+```html
+<div class="progress-bar" id="progressBar"></div>
+```
+```css
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--accent);
+  z-index: 1000;
+  transition: width 0.08s linear;
+}
+```
+```javascript
+window.addEventListener('scroll', () => {
+  const scrolled = window.scrollY;
+  const maxScroll = document.body.scrollHeight - window.innerHeight;
+  document.getElementById('progressBar').style.width =
+    Math.min((scrolled / maxScroll) * 100, 100) + '%';
+}, { passive: true });
+```
+
+**Vertical section-dot nav (recommended for stories with 5+ sections):**
+```html
+<nav class="section-nav" id="sectionNav" aria-label="Section navigation"></nav>
+```
+```css
+.section-nav {
+  position: fixed;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.section-nav .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.3;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  transition: all 0.3s;
+}
+.section-nav .dot.active {
+  background: var(--accent);
+  opacity: 1;
+  transform: scale(1.4);
+}
+```
+```javascript
+// Build section dots and highlight active section via IntersectionObserver
+const sections = document.querySelectorAll('.story-section');
+const nav = document.getElementById('sectionNav');
+
+sections.forEach((sec, i) => {
+  const dot = document.createElement('button');
+  dot.className = 'dot' + (i === 0 ? ' active' : '');
+  dot.setAttribute('aria-label', `Go to section ${i + 1}`);
+  dot.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth' }));
+  nav.appendChild(dot);
+});
+
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const i = [...sections].indexOf(e.target);
+      document.querySelectorAll('.section-nav .dot')
+        .forEach((d, j) => d.classList.toggle('active', j === i));
+    }
+  });
+}, { threshold: 0.5 });
+
+sections.forEach(s => sectionObserver.observe(s));
+```
 
 ### Mode C: Interactive Deck
 Slide-based but with embedded interactions. Best for training, demos, proposals with choices.
@@ -265,6 +438,7 @@ scaleToViewport(); // run on load
 
 ### Design principles (borrow from frontend-design skill)
 
+- **Style communicates credibility before the first word is read.** The visual preset is not a neutral aesthetic choice — it's a trust signal. Match it to the audience's expectations and the objective of the presentation. Executive/board review → authoritative and restrained (Executive Dark, Swiss Grid). Startup pitch → fluid and optimistic (Aurora). Technical deep-dive → precise and data-forward (Swiss Grid, Neon Noir). Consumer launch → warm and approachable (Studio Soft, Warm Magazine). A mismatch in visual register undermines the content no matter how strong the words are.
 - **Pick a bold visual direction and commit.** Don't hedge. Minimal and precise or maximal and expressive — both work. Half-measures don't.
 - **Typography matters more than anything.** Pair a distinctive display font with a clean body font. The headline font should have personality. Make the type hierarchy obvious and deliberate.
 - **Color with purpose.** One dominant color (60-70% visual weight), one supporting tone, one sharp accent. Never equal weights. Match the palette to the content's emotional register.
@@ -472,6 +646,7 @@ If a brand kit was collected in Phase 1, apply it here:
 
 - **Don't skip Phase 1 discovery.** Always ask about audience, goal, and delivery before anything else. These answers change the mode, structure, emphasis, and closing — skipping them wastes everyone's time.
 - **Don't jump from source doc straight to building.** When the input is a document or URL, produce a ghost list first, confirm it, then build.
+- **Don't choose a visual style purely on aesthetics.** When selecting 3 presets for the style preview, pick options that match the audience's expectations and the objective — not just what looks nice. An executive reviewing a board deck expects restraint and precision. A startup pitch should feel energetic. A technical talk should feel structured. Style is a trust signal, not decoration.
 - **Don't ask the user to describe their aesthetic in words.** Generate the style preview file and let them react to visuals.
 - **Don't echo bullet points onto slides.** Transform the content, don't transcribe it.
 - **Don't use Inter, Roboto, or Arial as display fonts.** Always use the fonts from the chosen preset in `STYLE_PRESETS.md`.
