@@ -87,10 +87,45 @@ Slide 2 — [Title]
   Content: ...
 ```
 
-After presenting the ghost list, ask:
-> "Does this capture what you need? Anything to add, cut, or reorder before I build?"
+After presenting the ghost list, append a density recommendation based on audience and delivery mode from Phase 1 — do not ask again, just state it. Then ask for confirmation on both together.
 
-Wait for explicit confirmation before proceeding to Phase 3 and 4.
+**Density reference table:**
+
+| Audience / Mode | Recommended density |
+|-----------------|-------------------|
+| Executive, board, investor — live presentation | **Lean** — labels only, presenter fills verbally |
+| Senior IC, growth, product — live presentation | **Lean-to-medium** — short labels + one sublabel line max |
+| Technical audience — live presentation | **Medium** — labels + brief descriptor, code/diagram preferred over prose |
+| Any audience — async share or scroll story | **Medium-to-rich** — more text is fine, reader controls pace |
+
+**Format for the combined confirmation message:**
+> "Does this structure work? Anything to add, cut, or reorder?
+>
+> Also — based on [audience] viewing this as a [live/async] presentation, I'd recommend **[density level]**: [one-sentence explanation of what that means in practice]. Let me know if you'd like a different approach."
+
+Wait for the user's reply before proceeding. If they adjust the density, note it and apply it in the build.
+
+---
+
+### Visual Treatment Decision (runs only if lean or lean-to-medium density is confirmed)
+
+**Step 2 — If lean or lean-to-medium density is chosen, ask about visual treatment for sparse slides:**
+
+When content per slide is minimal, cards and layouts can look visually empty. Resolve this once globally — the choice applies across the whole deck.
+
+Generate a small `visual-treatment-preview.html` file (similar to the style preview) showing these three options side by side using one of the deck's actual slides as the example:
+
+| Option | Description |
+|--------|-------------|
+| **B — Decorative numbers** | Large faded 01 / 02 / 03 in each card. Fills visual weight without adding reading load. Consistent with lesson/principle slides. |
+| **C — Icon anchors** | A relevant icon or emoji at the top of each card. Gives each item a visual identity and a focal point. |
+| **D — Layout restructure** | Drop the card grid. Use a large bold number or word as a left-side anchor, with items as a vertical list on the right. High visual impact, works well for 3–5 item slides. |
+
+Tell the user: *"Open `visual-treatment-preview.html` — which approach do you want for slides where content is sparse?"*
+
+Apply the chosen treatment consistently across all relevant slides in the build.
+
+**Only after both decisions are made, proceed to Phase 3 (Mode) and Phase 4 (Build).**
 
 ---
 
@@ -108,7 +143,7 @@ Wait for explicit confirmation before proceeding to Phase 3 and 4.
 - **One idea per slide**: If you need two sentences to summarize a slide's point, split it.
 - **Show, don't tell**: Replace bullet lists with visuals wherever possible — stats as large callouts, comparisons as side-by-side layouts, processes as step diagrams.
 - **Narrative arc**: Hook → Problem/Tension → Solution → Evidence → Call to Action. Every presentation tells a story.
-- **Audience calibration**: Executives want conclusions fast. Technical audiences want depth and data. Investors want traction and vision. Students want clarity. Match the vocabulary, depth, and pacing to who's watching.
+- **Audience calibration**: Executives want conclusions fast. Technical audiences want depth and data. Investors want traction and vision. Students want clarity. Match the vocabulary, depth, and pacing to who's watching. **Content density is not a fixed rule — it is a function of audience and delivery mode.** A live executive deck should have labels only (presenter fills verbally). An async technical report can carry full paragraphs. Never apply a blanket bullet limit — the answer lives in Phase 1: live presentation means lean, async means the text must stand on its own.
 - **Rule of clarity**: Every slide should answer "so what?" If it doesn't, cut it or reframe it.
 
 ---
