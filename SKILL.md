@@ -62,11 +62,13 @@ Apply the brand colors to the HTML by creating a custom `:root {}` block instead
 
 **Interactivity** (recommend based on delivery mode)
 - Live presentation → recommend slide mode with animated reveals
-- Async share → recommend scroll-based storytelling OR slide mode with self-navigation
+- Async share → recommend slide mode with self-navigation as the default; ask if they'd prefer scroll-based storytelling instead
 - Training or audience participation → recommend fully interactive (quizzes, branching)
-- Portfolio/showcase → recommend scroll-based cinematic experience
+- Portfolio/showcase → ask: slide deck or scroll-based cinematic experience?
 
-Be direct with your recommendation. "Based on what you told me, I'd go with scroll-based storytelling — here's why..." and let them push back.
+**Default to slide mode (Mode A) unless the user specifically asks for scroll-based.** Slide mode works for both live and async sharing, gives users a familiar navigation experience, and is easier to repurpose as a .pptx later. Scroll story is a great choice but should be an opt-in, not the default.
+
+Be direct with your recommendation: "I'd go with slide mode — click/arrow-key navigation, works live or shared async. Want scroll-based storytelling instead? It reads more like an article and works well for longer reports or portfolio pieces."
 
 ---
 
@@ -156,6 +158,8 @@ Apply the chosen treatment consistently across all relevant slides in the build.
 
 ## Phase 3: Choose the Presentation Mode
 
+**Default recommendation: Mode A (Slide Deck).** Only switch to Mode B if the user confirms they want scroll-based, or if the content is clearly a long-form report/portfolio piece.
+
 Recommend and confirm one of these three modes before building:
 
 ### Mode A: Slide Deck
@@ -204,12 +208,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 80px;
+  padding: 5rem;        /* rem — scales with root font size scaler below */
   position: relative;
 }
 
 .section-content {
-  max-width: 960px;
+  max-width: 60rem;     /* rem — scales with root font size scaler below */
   width: 100%;
 }
 
@@ -219,6 +223,40 @@ body {
   transform: translateY(28px);
 }
 ```
+
+**Viewport-proportional scaling — REQUIRED for scroll stories:**
+
+Scroll stories cannot use `scaleToViewport()` (that's for fixed-canvas slide mode only). Instead, use a **root font size scaler**: a small JS snippet sets `html { font-size }` proportional to viewport width. All layout values then use `rem`, so the entire layout — headings, body text, padding, column width — scales together as the viewport grows, exactly like `scaleToViewport()` does for slide mode.
+
+**Required JS (add near the top of your script block, before GSAP init):**
+```javascript
+// === SCROLL STORY SCALING ===
+// Scales the entire layout by adjusting the root font size.
+// All rem-based values (fonts, padding, max-width) grow proportionally.
+// Reference: 1rem = 16px at a 1280px-wide viewport.
+const STORY_REF_WIDTH = 1280;
+
+function scaleStoryLayout() {
+  const scale = Math.min(Math.max(window.innerWidth / STORY_REF_WIDTH, 0.5), 2.5);
+  document.documentElement.style.fontSize = (16 * scale) + 'px';
+}
+
+window.addEventListener('resize', scaleStoryLayout);
+scaleStoryLayout(); // run on load
+```
+
+**Required CSS for typography (all in rem — scales automatically):**
+```css
+.story-section h1   { font-size: 3.5rem;  line-height: 1.15; }
+.story-section h2   { font-size: 2.5rem;  line-height: 1.25; }
+.story-section h3   { font-size: 1.75rem; line-height: 1.35; }
+.story-section p,
+.story-section li   { font-size: 1.1rem;  line-height: 1.75; }
+.story-section .stat  { font-size: 6rem;  font-weight: 700; }
+.story-section .label { font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; }
+```
+
+> **Why root font size instead of clamp():** `clamp()` only scales font sizes, but the content column width (`max-width`) and padding stay fixed in `px` — so on a 2560px projector screen, you get bigger text inside the same 960px box. Root font scaling moves the entire layout together: fonts, padding, and column width all scale as one unit, giving the same proportional feel as `scaleToViewport()` on slide mode. The `Math.min(..., 2.5)` cap prevents runaway scaling on ultra-wide displays; `Math.max(..., 0.5)` keeps it readable on small screens.
 
 **ScrollTrigger setup — register the plugin, then wire up reveals:**
 ```javascript
